@@ -1,0 +1,14 @@
+PUT logs_fixed/_mapping
+{
+  "dynamic_templates": [
+    {
+      "my_string_fields": {
+        "match_mapping_type": "string",
+        "mapping": {
+          "type": "keyword"
+        }
+      }
+    }
+  ]
+}
+GET _cat/indices?v

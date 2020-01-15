@@ -1,0 +1,26 @@
+GET tmp_index/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_countries": {
+      "terms": {
+        "field": "country_name.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+PUT tmp_index/_mapping
+{
+  "properties": {
+    "region_name": {
+      "type": "keyword",
+      "index": false
+    },
+    "city_name": {
+      "type": "keyword",
+      "doc_values": false
+    }
+  }
+}

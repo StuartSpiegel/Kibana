@@ -1,0 +1,24 @@
+GET blogs/_search
+{
+  "size": 3,
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query": "elastic stack"
+      }
+    }
+  },
+
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}

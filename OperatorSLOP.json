@@ -1,0 +1,41 @@
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "search"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "search analytics"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "search anlytics",
+        "operator": "and"
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query": "search analytics",
+        "slop": 1
+      }
+    }
+  }
+}

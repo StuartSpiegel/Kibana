@@ -1,0 +1,7 @@
+GET blogs/_search
+{
+  "size": 100,
+  "query": {
+    "match_all": {}
+  }
+}

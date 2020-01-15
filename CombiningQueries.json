@@ -1,0 +1,28 @@
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+
+        "match": {
+          "content": "improvements"
+        }
+      }
+    ],
+
+    "minimum_should_match" : 2
+  }
+}
+}

@@ -1,0 +1,6 @@
+GET blogs/_search
+{
+  "query": {
+    "math_all": {}
+  }
+}

@@ -1,0 +1,23 @@
+GET blogs/_search
+{
+  "size": 100,
+  "_source": {
+    "excludes": ["content"]
+  },
+  "query": {
+    "match_all": {}
+  }
+  }
+}
+
+GET blogs/_search
+{
+  "size": 100,
+  "_source": {
+    "includes": ["author", "title"]
+  },
+  "query": {
+    "match_all": {}
+  }
+  }
+}

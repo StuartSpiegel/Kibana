@@ -1,0 +1,13 @@
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": [
+        "title",
+        "content"
+      ],
+      "type": "phrase"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+
+
+PUT my_blogs/_doc/1
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "category": "Engineering",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes",
+    "company": "Elastic"
+  }
+}
+
+
+GET my_blogs/_mget
+{
+  "docs": [
+    {"_id":2},
+    {"_id":3}
+  ]
+}
+
+GET  blogs/_search
+{
+  "query":{
+    "match":{
+      "content":{
+        "query": "ingest nodes",
+        "operator": "and"
+
+
+      }
+    }
+  }
+}

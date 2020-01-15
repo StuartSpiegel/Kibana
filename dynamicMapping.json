@@ -1,0 +1,95 @@
+POST tmp_index/_doc/1
+{
+  "@timestamp": "2019-07-08T03:00:00.000Z",
+  "ip": "105.32.126.44",
+  "bytes": 8261,
+  "coordinates": {
+    "lat": 30.42769722,
+    "lon": -87.70082
+  }
+}
+
+GET tmp_index/_mappings
+{
+  "tmp_index" : {
+    "mappings" : {
+      "properties" : {
+        "@timestamp" : {
+          "type" : "date"
+        },
+        "bytes" : {
+          "type" : "long"
+        },
+        "coordinates" : {
+          "properties" : {
+            "lat" : {
+              "type" : "float"
+            },
+            "lon" : {
+              "type" : "float"
+            }
+          }
+        },
+        "ip" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+GET tmp_index/_search
+{
+  "query": {
+    "term": {
+      "ip": "105.32.0.0/16"
+    }
+  }
+}
+
+PUT my_logs
+{
+"_comment": "IP field is mapped explicitly as the IP Data type",
+ "mappings": {
+   "properties": {
+     "ip": {
+       "type": "ip"
+    }
+   }
+  }
+ }
+
+ POST my_logs/_doc
+{
+  "ip" : "105.32.126.44"
+}
+
+GET my_logs/_search
+{
+  "comment": "Execute same query as above, but against NEW index, doc is now a hit",
+  "query": {
+    "term": {
+      "ip": "105.32.0.0/16"
+    }
+  }
+}
+
+GET my_logs/_search
+{
+  "comment": "validate change on new Index",
+  "query": {
+    "geo_distance": {
+      "distance": "200km",
+      "coordinates": {
+        "lat": 30,
+        "lon": -87
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+PUT loglevel_test1/_mapping
+{
+  "properties": {
+    "log": {
+      "properties" : {
+        "level": {
+          "type": "alias",
+          "path": "level.keyword"
+        }
+      }
+    }
+  }
+}
+PUT loglevel_test2/_mapping
+{
+  "properties": {
+    "log": {
+      "properties": {
+        "level": {
+          "type": "alias",
+          "path": "log_level.keyword"
+        }
+      }
+    }
+  }
+}
+GET loglevel*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_levels": {
+      "terms": {
+        "field": "log.level",
+        "size": 10
+      }
+    }
+  }
+}
+
+{
+  "took" : 0,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 0,
+    "successful" : 0,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 0,
+      "relation" : "eq"
+    },
+    "max_score" : 0.0,
+    "hits" : [ ]
+  }
+}

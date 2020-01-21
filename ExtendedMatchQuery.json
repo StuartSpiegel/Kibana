@@ -1,0 +1,11 @@
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "open source software",
+        "minimum_should_match": 2
+      }
+    }
+  }
+}

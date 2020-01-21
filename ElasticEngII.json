@@ -1,0 +1,239 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+PUT nested_blogs
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "products": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "authors": {
+        "type": "nested",
+        "properties": {
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "country": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword"
+                      }
+                    }
+                  },
+                  "code": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+POST nested_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"Company-6"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Company-5"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Company-1"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Company-5"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"Company-6"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Company-5"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Company-8"}}]}
+
+GET nested_blogs/_search
+{
+  "query": {
+    "nested": {
+      "path": "authors",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "authors.name": "alex"
+              }
+            },
+            {
+            "match": {
+              "authors.company.name.keyword": "Company-5"
+            }
+            }
+            ]
+        }
+      }
+    }
+  }
+}
+GET denormalized_blogs/_search
+{
+  "size": 0,
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "authors.company.name.keyword"
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "authors.name.keyword"
+          }
+        }
+      }
+    }
+  }
+}
+GET nested_blogs/_search
+{
+  "size": 0,
+  "aggs": {
+    "NAME": {
+      "nested": {
+        "path": "authors"
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "authors.company.name.keyword"
+            },
+            "aggs": {
+              "NAME": {
+                "terms": {
+                  "field": "authors.name.keyword"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  {
+    "took" : 5,
+    "timed_out" : false,
+    "_shards" : {
+      "total" : 1,
+      "successful" : 1,
+      "skipped" : 0,
+      "failed" : 0
+    },
+    "hits" : {
+      "total" : {
+        "value" : 3,
+        "relation" : "eq"
+      },
+      "max_score" : null,
+      "hits" : [ ]
+    },
+    "aggregations" : {
+      "NAME" : {
+        "doc_count" : 7,
+        "NAME" : {
+          "doc_count_error_upper_bound" : 0,
+          "sum_other_doc_count" : 0,
+          "buckets" : [
+            {
+              "key" : "Company-5",
+              "doc_count" : 3,
+              "NAME" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "Chris Cowan",
+                    "doc_count" : 2
+                  },
+                  {
+                    "key" : "Alex Brasetvik",
+                    "doc_count" : 1
+                  }
+                ]
+              }
+            },
+            {
+              "key" : "Company-6",
+              "doc_count" : 2,
+              "NAME" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "Alex Francoeur",
+                    "doc_count" : 2
+                  }
+                ]
+              }
+            },
+            {
+              "key" : "Company-1",
+              "doc_count" : 1,
+              "NAME" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "Chris Overton",
+                    "doc_count" : 1
+                  }
+                ]
+              }
+            },
+            {
+              "key" : "Company-8",
+              "doc_count" : 1,
+              "NAME" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "Tim Roes",
+                    "doc_count" : 1
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }

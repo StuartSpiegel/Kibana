@@ -1,0 +1,97 @@
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+GET _analyze
+{
+  "analyzer": "whitespace",
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+
+}
+
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": ["lowercase", "asciifolding"],
+   "text": "Elasticsearch é um motor de buscas distribuído."
+}
+
+GET _analyze
+{
+  "analyzer": "english",
+  "text": "C++ can help it and your IT ststems."
+}
+
+PUT analysis_test
+{
+  "settings": {
+    "analysis": {
+      "char_filter": {
+        "cpp_it": {
+          "type": "mapping",
+          "mappings": ["c++ => cpp", "C++ => cpp", "IT => _IT_"]
+        }
+      },
+      "filter": {
+        "my_stop": {
+          "type": "stop",
+          "mappings": ["can", "we", "our", "you", "your", "all"]
+        }
+      },
+      "analyzer": {
+        "my_analyzer": {
+          "tokenizer": "standard",
+          "char_filter": ["cpp_it"],
+          "filter": ["lowercase", "stop", "my_stop"]
+        }
+      }
+    }
+  }
+}
+
+GET analysis_test/_analyze
+{
+  "analyzer": "my_analyzer",
+  "text": "C++ can help it and your systems."
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "cpp",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "can",
+      "start_offset" : 4,
+      "end_offset" : 7,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    },
+    {
+      "token" : "help",
+      "start_offset" : 8,
+      "end_offset" : 12,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    },
+    {
+      "token" : "your",
+      "start_offset" : 20,
+      "end_offset" : 24,
+      "type" : "<ALPHANUM>",
+      "position" : 5
+    },
+    {
+      "token" : "systems",
+      "start_offset" : 25,
+      "end_offset" : 32,
+      "type" : "<ALPHANUM>",
+      "position" : 6
+    }
+  ]
+}

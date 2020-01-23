@@ -1,0 +1,176 @@
+POST _analyze
+{
+    "tokenizer": "icu_tokenizer",
+    "text": ["星球 战是我最喜欢的电影"]
+}
+
+#Network topology lab, ENG II
+GET _cat/nodes?v&s=name
+GET _cat/nodeattrs?v&s=name
+
+#Verify the shard allocation, Are there copies of the same shard allocated on the same rack?
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+#Transient Settings: my_rack attribute
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster": {
+      "routing": {
+        "allocation.awareness.attributes": "my_rack"
+      }
+    }
+  }
+}
+
+#View shard allocation
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+
+#Multi-Cluster Setups
+PUT comments
+{
+  "mappings" : {
+    "properties" : {
+      "comment" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "movie" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "rating" : {
+        "type" : "long"
+      },
+      "username" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}
+#Index doc 1
+PUT comments/_doc/7
+{"username": "ricardo", "movie": "Star Trek IV: The Voyage Home","comment": "Loved it!", "rating": 5}
+
+#Index doc 2
+PUT comments/_doc/8
+{"username": "sara", "movie": "Wonder Woman","comment": "Finally a good DC Comics movie", "rating": 4}
+
+#Configure my_cluster so that it runs across cluster searches onto my_cluster_2
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.remote" : {
+      "my_cluster_2" : {
+        "seeds" : ["server6:9300"]
+      }
+    }
+  }
+}
+#Search across clusters
+#Point elastic search at the correct cluster in the prefix of the search
+GET my_cluster_2:comments,comments/_search
+
+#Create a leader index called my_replicated_blogs in my_cluster
+PUT my_replicated_blogs
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "soft_deletes": {
+        "enabled": true
+      }
+    }
+  },
+  "mappings" : {
+    "properties" : {
+      "author" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "category" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "content" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "locales" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "publish_date" : {
+        "type" : "date"
+      },
+      "seo_title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "some_other_field" : {
+        "type" : "text"
+      },
+      "title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "url" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}

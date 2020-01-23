@@ -1,0 +1,144 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+#Test dynamic index
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+#Delete the test index
+DELETE dynamic_test
+
+#Disable Dynamic Index creation
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index": false
+  }
+}
+
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+PUT dynamic_test
+{
+  "mappings": {
+    "properties": {
+      "my-field": {
+        "type": "text"
+      }
+    }
+  }
+}
+
+PUT dynamic_test/_doc/1
+{
+  "my-field": "A value"
+}
+#Delete the previous index
+DELETE dynamic_test
+
+#Whitelist the dynamic-test and X-pack indices
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index" : "dynamic_test,.monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*"
+  }
+}
+#Do the test for whitelisted indices
+#First indexing causes an error and 2nd does not
+#The first indexing does not match the whitelisted pattern we defined before, but the 2nd one does
+PUT dynamic/_doc/1
+{
+  "my_field": "A Value"
+
+}
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A Value"
+
+}
+#Dynamic Templates: New Index surveys
+PUT surveys
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "undefined_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword",
+            "index": false
+          }
+        }
+      },
+      {
+        "rating_fields": {
+          "match": "*_rating",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      }
+    ],
+    "properties": {
+      "job_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "miles_travelled": {
+        "type": "integer_range"
+      }
+    }
+  }
+}
+PUT /surveys/_doc/1
+{
+  "job_title": "Elasticsearch Engineer",
+  "course_rating": 9,
+  "comments": "Great class. I want to get certified now!",
+  "miles_travelled": "0-25"
+
+}
+
+#Index the below document into surveys
+PUT /surveys/_doc/2
+{
+  "job_title": "Software Engineer",
+  "labs_rating": 10,
+  "city": "Berlin",
+  "miles_travelled": {
+    "gt": 50,
+    "lte": 100
+  }
+}
+
+#Create a new index named surveys2 that has two fields in its mapping: Feedback (text) and course_rating (integer)
+PUT surveys2
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "feedback": {
+        "type": "text"
+      },
+      "course_rating": {
+        "type": "integer"
+      }
+    }
+  }
+}
+#Test PUT command
+#This document will not get indexed because it contains a field not defined in the mapping, and mapping is set to 'strict'.
+PUT surveys2/_doc/1
+{
+  "food_rating": 10
+}

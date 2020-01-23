@@ -1,0 +1,1103 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Elastic Eng II: Ingest Nodes and Pipelines
+GET blogs_fixed/_search
+{
+  "size": 0,
+    "aggs": {
+      "locale terms": {
+        "terms": {
+          "field": "locales",
+          "size": 10
+        }
+      }
+    }
+  }
+#My_pipeline
+PUT _ingest/pipeline/fix_locales
+{
+"processors": [
+  {
+    "set": {
+      "if": "ctx['locales'].empty",
+      "field": "locales",
+      "value": "en-en"
+    }
+  },
+  {
+    "set": {
+      "field": "reindex_batch",
+      "value" : 3
+    }
+  },
+  {
+    "split": {
+      "field": "locales",
+      "separator": ","
+    }
+  }
+]
+}
+#Test documents for above pipeline
+POST _ingest/pipeline/fix_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+      "locales": "de-de,fr-fr,ja-jp,ko-kr"
+    }
+    },
+  {
+    "_source": {
+      "locales": ""
+    }
+  }
+  ]
+}
+POST blogs_fixed/_update_by_query?pipeline=fix_locales
+{
+  "query": {
+    "match": {
+    "reindexbatch": 2
+  }
+  }
+}
+
+#Check the status of your pipeline:
+#How many documents have been processed for  eachprocessor in the pipeline
+
+GET _nodes/stats/ingest?filter_path=nodes.*.ingest.pipelines.fix_locales
+
+#Terms Aggregation against Pipeline
+
+POST blogs_fixed/pipeline/_simulate
+{
+  "aggregations" : {
+  "locale_terms" : {
+    "doc_count_error_upper_bound" : 0,
+    "sum_other_doc_count" : 0,
+    "buckets" : [
+      {
+        "key" : "en-en",
+        "doc_count" : 1290
+      },
+      {
+        "key" : "fr-fr",
+        "doc_count" : 43
+      },
+      {
+        "key" : "de-de",
+        "doc_count" : 41
+      },
+      {
+        "key" : "ko-kr",
+        "doc_count" : 37
+      },
+      {
+        "key" : "ja-jp",
+        "doc_count" : 34
+      },
+      {
+        "key" : "zh-chs",
+        "doc_count" : 8
+      }
+    ]
+  }
+}
+}
+# View locales -> grouped into an array now
+GET blogs_fixed/_search
+{
+  "size": 100,
+  "_source": "locales"
+}
+
+# underscore_locales
+# using for-each processor and gsub replace
+# all the hyphen by underscore in the locales.
+# Second setProessor should reindexBatch equal to 4 for every document
+
+PUT _ingest/pipeline/underscore_locales
+{
+  "processors": [
+    {"foreach": {
+      "field": "locales",
+      "processor": {
+        "gsub": {
+          "field": "_ingest._value",
+          "pattern": "-",
+          "replacement": "_"
+        }
+      }
+    }
+    },
+    {
+      "set": {
+        "field": "reindexbatch",
+        "value": 4
+      }
+    }
+  ]
+}
+
+#Test for underscore_locales pipeline
+POST _ingest/pipeline/underscore_locales/_simulate
+{
+  "docs": [
+    {
+    "_source": {
+      "locales": [
+    "de-de",
+    "fr-fr",
+    "ja-jp",
+    "ko-kr",
+    "zh-chs"
+        ]
+      }
+    }
+  ]
+  }
+
+#Using an _update by query ->
+#Update all docs in blogs_fixed with reindex-batch
+POST blogs_fixed/_update_by_query?pipeline=underscore_locales
+{
+  "query": {
+    "match": {
+      "reindexbatch": 3
+    }
+  }
+}
+
+#Test-> Verify the documents were updated
+GET blogs_fixed/_search
+{
+  "size": 100,
+  "_source": "locales"
+}
+
+# ********************************************************** #
+{
+  "took" : 24,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 1356,
+      "relation" : "eq"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "2J7er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "357er20BwyNPHBh8nCId",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "XJ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "257er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de,fr-fr,ja-jp,ko-kr"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "3J7er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de,fr-fr,ja-jp,ko-kr"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "3Z7er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de,fr-fr,ja-jp,ko-kr"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "357er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "2p7er20BwyNPHBh8nCQj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "X57er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "7J7er20BwyNPHBh8nCQj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "7Z7er20BwyNPHBh8nCQj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "7p7er20BwyNPHBh8nCQj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "257er20BwyNPHBh8nSWA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "8J7er20BwyNPHBh8nCQj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "a57er20BwyNPHBh8nCMf",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "fZ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "_Z7er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "_p7er20BwyNPHBh8nCMh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "AJ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "f57er20BwyNPHBh8nCQi",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Dp7er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "D57er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "hJ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "A57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "EJ7er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "EZ7er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Bp7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "CZ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "F57er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de,fr-fr,ja-jp,ko-kr"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "YJ7er20BwyNPHBh8nSaX",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "DZ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Dp7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "D57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "ZZ7er20BwyNPHBh8nSaX",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "EJ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "a57er20BwyNPHBh8nSaX",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "IJ7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "EZ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "LZ7er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "E57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "mZ7er20BwyNPHBh8nCMf",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "FJ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "mp7er20BwyNPHBh8nCMf",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Bp7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Ip7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "B57er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "I57er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "CJ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "CZ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Cp7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "J57er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "KZ7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Kp7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "K57er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "nZ7er20BwyNPHBh8nCQi",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "LJ7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "LZ7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Lp7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "I57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "MJ7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "n57er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "oJ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "ko-kr"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Jp7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "J57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "p57er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "qZ7er20BwyNPHBh8nCQi",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "pp7er20BwyNPHBh8nCMf",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Mp7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "qJ7er20BwyNPHBh8nCMf",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Op7er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "jp7er20BwyNPHBh8nSaX",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "s57er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Q57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "tJ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "mJ7er20BwyNPHBh8nSaX",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "KZ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "uZ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Sp7er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "P57er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "LZ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "SJ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "SZ7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Sp7er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "S57er20BwyNPHBh8nCUj",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "U57er20BwyNPHBh8nCMe",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : "de-de,fr-fr,ja-jp,ko-kr"
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "vZ7er20BwyNPHBh8nCV-",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "RZ7er20BwyNPHBh8nSaA",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "zp7er20BwyNPHBh8nCQi",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Qp7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "tZ7er20BwyNPHBh8nSaX",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "Rp7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "SZ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "1Z7er20BwyNPHBh8nCMg",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "1p7er20BwyNPHBh8nCMg",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "TZ7er20BwyNPHBh8nCQh",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "157er20BwyNPHBh8nCMg",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "8J7er20BwyNPHBh8nyfE",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "nZ7er20BwyNPHBh8nyjs",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "8p7er20BwyNPHBh8nyfE",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      },
+      {
+        "_index" : "blogs_fixed",
+        "_type" : "_doc",
+        "_id" : "oJ7er20BwyNPHBh8nyjs",
+        "_score" : 1.0,
+        "_source" : {
+          "locales" : ""
+        }
+      }
+    ]
+  }
+}

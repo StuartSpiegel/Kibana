@@ -1,0 +1,359 @@
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server*",
+        "alias": "accsess_logs"
+      }
+    }
+    ]
+}
+
+#Test 1
+#Verify that access_logs points to all three indices
+GET accsess_logs/_count
+{
+
+}
+#Test 2: Try adding a new document to the access_logs alias
+PUT access_logs/_doc/3
+{
+  "@timestamp": "2017-05-05T02:07:51.407Z",
+  "host": "server1",
+  "user_agent": "Amazon CloudFront",
+  "originalUrl": "/blog/elasticsearch-5-4-0-released",
+  "response_size": 49921,
+  "input": {
+    "type": "log"
+  },
+  "http_version": "1.1",
+  "runtime_ms": 108,
+  "method": "GET",
+  "language": {
+    "url": "/blog/elasticsearch-5-4-0-released",
+    "code": "en-us"
+  },
+  "status_code": 200,
+  "geoip": {
+    "country_code3": "JP",
+    "continent_code": "AS",
+    "location": {
+      "lon": 139.69,
+      "lat": 35.69
+    },
+    "country_name": "Japan",
+    "country_code2": "JP"
+  },
+  "level": "info"
+}
+#Specify on which index you want to write the new document
+#Use logs_server3
+
+POST /_aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    }
+  ]
+}
+#Define Index-Template --> logs_server*
+#Same index settings and mappings, 10 Order
+PUT _template/access_logs_template
+{
+  "index_patterns": "logs_server*",
+  "order": 10,
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "geoip": {
+        "properties": {
+          "city_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "continent_code": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "country_code2": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "country_code3": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "country_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "location": {
+            "properties": {
+              "lat": {
+                "type": "float"
+              },
+              "lon": {
+                "type": "float"
+              }
+            }
+          },
+          "region_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "host": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "http_version": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "language": {
+        "properties": {
+          "code": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "url": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "level": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "method": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "originalUrl": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "response_size": {
+        "type": "long"
+      },
+      "runtime_ms": {
+        "type": "long"
+      },
+      "status_code": {
+        "type": "long"
+      },
+      "user_agent": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      }
+    }
+  }
+}
+
+#Test 3
+PUT logs_server4
+GET logs_server4
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "alias": "access_logs",
+        "index": "logs_server3",
+        "is_write_index": false
+      }
+    },
+    {
+      "add": {
+        "alias": "access_logs",
+        "index": "logs_server4",
+        "is_write_index": true
+      }
+    },
+    {
+      "remove": {
+        "alias": "access_logs",
+        "index": "logs_server1"
+      }
+    }
+  ]
+}
+
+PUT access_logs/_doc1/1
+{
+  "@timestamp": "2018-03-21T05:57:19.722Z",
+  "originalUrl": "/blog/logstash-jdbc-input-plugin",
+  "host": "server2",
+  "response_size": 58754,
+  "status_code": 200,
+  "method": "GET",
+  "runtime_ms": 143,
+  "geoip": {
+    "country_code2": "IN",
+    "country_code3": "IN",
+    "continent_code": "AS",
+    "location": {
+      "lon": 77.5833,
+      "lat": 12.9833
+    },
+    "region_name": "Karnataka",
+    "city_name": "Bengaluru",
+    "country_name": "India"
+  },
+  "language": {
+    "url": "/blog/logstash-jdbc-input-plugin",
+    "code": "en-us"
+  },
+  "user_agent": "Amazon CloudFront",
+  "http_version": "1.1",
+  "level": "info"
+}
+
+#Create a search template for this query
+GET logs_server*/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "2017-05-12",
+              "lt": "2017-05-13"
+            }
+          }
+        },
+        {
+          "match": {
+            "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+          }
+        }
+      ]
+    }
+  }
+}
+#Url represents value of originalUrl.keyword
+#Start_date -> day to search for
+#end_date -> upper end of date range
+PUT _scripts/daily_hits
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "{{start_date}}",
+                  "lt": "{{end_date}}"
+                }
+              }
+            },
+            {
+              "match": {
+                "originalUrl.keyword": "{{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+#Test 1 Modify search template with new fields
+GET logs_server*/_search/template
+{
+  "id": "daily_hits",
+  "params": {
+    "url": "/blog/brewing-in-beats-postgresql-module-in-filebeat",
+    "start_date": "2017-08-11",
+    "end_date": "2017-08-12"
+  }
+}

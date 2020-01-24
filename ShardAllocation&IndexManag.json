@@ -1,0 +1,153 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Verify the shard conditions have been met
+GET _cat/nodes?v&s=name
+GET _cat/nodeattrs?v&s=name
+
+#Configure the log_servers to be allocated on proper nodes
+PUT logs_server1/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server2/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server3/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server4/_settings
+{
+  "index.routing.allocation.require.my_temp": "hot"
+}
+
+#Test: Verify the shard filtering is working
+GET _cat/shards/logs_server*?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+#Lab 5.2 Index Management
+#Create the new logs-00001 index
+PUT logs-000001
+{
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 1,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "logs-write": {
+      "is_write_index": true
+    },
+    "logs-read": {
+      "is_write_index": false
+    }
+  }
+}
+#Run this _bulk command
+POST logs-write/_bulk
+{ "index" : { "_id" : "1"}}
+{ "level" : "INFO", "message" : "recovered [20] indices into cluster_state", "date" : "2018-07-04"}
+{ "index" : { "_id" : "2"}}
+{ "level" : "WARN", "message" : "received shard failed for shard id 0", "date" : "2018-07-04"}
+{ "index" : { "_id" : "3"}}
+{ "level" : "INFO", "message" : "Cluster health status changed from [YELLOW] to [GREEN]", "date" : "2018-07-04"}
+
+GET logs-read/_search
+
+#Implement a Roll-Over for the logs-write into a new index
+
+POST logs-write/_rollover
+{
+  "conditions": {
+    "max_age": "1d",
+    "max_docs": "2",
+    "max_size": "1gb"
+  },
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 1,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "logs-read": {
+      "is_write_index": false
+    }
+  }
+}
+POST logs-write/_bulk
+{ "index" : { "_id" : "4"}}
+{ "level" : "INFO", "message" : "[node2] started", "date" : "2018-07-05"}
+{ "index" : { "_id" : "5"}}
+{ "level" : "WARN", "message" : "not enough master nodes discovered during pinging", "date" : "2018-07-05"}
+
+#Run query to verify that the two log events ended up in the correct index
+GET logs-000002/_search
+GET logs-read/_search
+
+DELETE logs-read
+
+#Prepare logs-00001 for shrinking by making it read-only, allocate all shards to warm nodes
+
+PUT logs-000001/_settings
+{
+  "routing": {
+    "allocation": {
+      "require": {
+        "my_temp": "warm"
+      }
+    }
+  },
+  "blocks.write": true
+}
+
+#Shrink logs-00001 into shrink-logs-00001 with a single primary shard
+POST logs-000001/_shrink/shrink-logs-000001
+{
+  "settings": {
+    "index.number_of_shards": 1,
+    "codec": "best_compression"
+  }
+}
+
+#Force merge all of shrink-logs-00001 into a single segment
+POST shrink-logs-000001/_forcemerge?max_num_segments=1
+
+POST _aliases
+{
+  "actions": [
+    {
+      "remove": {
+        "index": "logs-000001",
+        "alias": "logs-read"
+      }
+    },
+    {
+      "add": {
+        "index": "shrink-logs-000001",
+        "alias": "logs-read"
+      }
+    }
+  ]
+}
+
+GET logs-read/_search

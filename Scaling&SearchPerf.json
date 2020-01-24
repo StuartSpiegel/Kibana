@@ -1,0 +1,348 @@
+GET logs_server*/_search
+{
+  "_source": "originalUrl",
+  "query": {
+    "match": {
+      "originalUrl": "search"
+    }
+  }
+}
+
+# With dfs_query_then_fetch, the score is the same for all hits that have the same originalUrl (5.436115). This happens because Elasticsearch is calculating the document frequency globally, instead of at the shard level.
+GET logs_server*/_search?search_type=dfs_query_then_fetch
+{
+  "_source": "originalUrl",
+  "query": {
+    "match": {
+      "originalUrl": "search"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "size": 3,
+  "query": {
+    "match_phrase": {
+      "content": "elastic stack"
+    }
+  },
+  "sort": [
+    {
+      "_score": {
+        "order": "desc"
+      }
+    },
+    {
+      "_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "logs_by_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "interval": "week"
+      },
+      "aggs": {
+        "status_code_buckets": {
+          "terms": {
+            "field": "status_code",
+            "show_term_doc_count_error": true
+          }
+        }
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_cities": {
+      "terms": {
+        "field": "geoip.city_name.keyword",
+        "size": 20,
+        "show_term_doc_count_error": true
+      }
+    }
+  }
+}
+
+#Lab 6.2: Scaling ElasticSearch
+PUT temp1
+
+#View the number of primary and replica shardsa
+GET _cat/shards/temp1?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+PUT temp4
+{
+  "settings": {
+    "index.refresh_interval": -1,
+    "index.number_of_replicas": 0,
+    "index.number_of_shards": 4
+  }
+}
+
+GET _cat/shards/temp4?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+#Note you should have one primary shard allocated per data node.
+
+#Reindex from logs_server* into temp4
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "logs_server*"
+  },
+  "dest": {
+    "index": "temp4"
+  }
+}
+
+GET temp4/_count
+
+#Monitor whether your reindex operation has finished
+GET _tasks?actions=*reindex
+
+#Cross check: check whether docs.count is 1,751,477
+GET _cat/indices/temp4?v
+
+PUT temp4/_settings
+{
+  "index.refresh_interval": "1s"
+}
+
+GET temp4/_count
+
+PUT temp4/_settings
+{
+  "index.auto_expand_replicas": "0-all"
+}
+GET _cat/shards/temp4?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+DELETE temp*
+
+#Lab 6.3
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "content": "security"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "category.keyword": "Engineering"
+            }
+        },
+        {
+          "range": {
+            "publish_date": {
+              "gte": "2015-01-01T00:00:00.000Z",
+              "lte": "2018-01-01T00:00:00.000Z"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": {
+        "term": {
+          "status_code": 200
+        }
+      }
+    }
+  },
+  "aggs": {
+    "statistics": {
+      "matrix_stats": {
+        "fields": ["runtime_ms", "response_size"]
+      }
+    }
+  }
+}
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "originalUrl": "elasticsearch"
+        }
+      }
+    }
+  },
+  "aggs": {
+    "above_sla": {
+      "filter": {
+        "range": {
+          "runtime_ms": {
+            "gt": "685"
+          }
+        }
+      },
+      "aggs": {
+        "top_countries": {
+          "terms": {
+            "field": "geoip.country_name.keyword",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "originalUrl": "elasticsearch"
+        }
+      }
+    }
+  },
+  "aggs": {
+    "my_sample": {
+      "sampler": {
+        "shard_size": 100
+      },
+      "aggs": {
+        "top_countries": {
+          "terms": {
+            "field": "geoip.country_name.keyword",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+PUT blogs_reverse
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "reverse": {
+          "type": "custom",
+          "char_filter": [],
+          "tokenizer": "standard",
+          "filter": ["lowercase", "reverse"]
+        }
+      }
+    }
+  },
+  "mappings" : {
+    "properties" : {
+      "author" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "category" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "content" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          },
+          "reverse": {
+            "type": "text",
+            "analyzer": "reverse"
+          }
+        }
+      },
+      "locales" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "publish_date" : {
+        "type" : "date"
+      },
+      "seo_title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "url" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}
+#Reindex data from old index to new index
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_reverse"
+  }
+}
+GET blogs_reverse/_search
+{
+  "query": {
+    "regexp": {
+      "content.reverse": "hcraes.*"
+    }
+  }
+}

@@ -1,0 +1,113 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Check Cluster Status
+GET _cat/nodes?v
+GET _cat/indices?v
+
+PUT _template/partners
+{
+  "aliases": {
+    "partners": {}
+  },
+  "index_patterns": ["partners-*"],
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "string_to_keyword": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+      ],
+      "properties": {
+        "address": {
+          "type": "text"
+        }
+      }
+  },
+  "settings":{
+    "number_of_shards": 4,
+    "number_of_replicas": 3
+
+  }
+}
+#Test above definition
+PUT partners-1
+GET partners-1
+
+PUT _template/customers
+{
+  "aliases": {
+    "customers": {}
+  },
+  "index_patterns": ["customers-*"],
+  "mappings": {
+    "dynamic_templates": [
+      {
+      "Long_to_integer": {
+        "match_mapping_type": "long",
+        "mapping": {
+          "type": "integer"
+        }
+      }
+    }
+    ],
+    "properties": {
+      "year_to_date": {
+        "type": "double"
+      }
+    }
+  },
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 3
+  }
+}
+#Create a new index with the dynamic mappin we just defined
+PUT cusomters-1
+GET customers-1
+
+
+PUT _template/leads
+{
+  "aliases": {
+    "leads": {}
+  },
+  "index_patterns": ["leads-*"],
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "String_to_keyword": {
+          "match_mapping_type": "string",
+          "match": "lead_",
+          "unmatch": "_text",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+      ],
+      "properties": {
+        "address": {
+          "type": "text"
+        },
+        "estimate": {
+          "type": "double"
+        }
+      }
+  },
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 3
+  }
+}
+#Test the defined leads template
+PUT leads-1
+GET leads-1

@@ -1,0 +1,109 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET _cat/indices?v
+GET shakespeare/_search
+GET romeo_and_juliet/_search
+
+#Observe Index in current state
+GET shakespeare
+
+#Do the desired reindex operation
+POST _reindex
+{
+  "source": {
+    "index": "shakespeare",
+    "query": {
+      "match": {
+        "play_name": "Romeo and Juliet"
+      }
+    }
+  },
+  "dest": {
+    "index": "romeo and juliet",
+    "pipeline": "shakespeare-tokenizer"
+  }
+}
+
+#Create the described pipeline
+#Split the text entry on whitespace and reindex documents to the word_array field
+#Painless Script: Stop this operation when the word count is equal to the length of the words_array in the previous index 
+PUT _ingest/pipeline/shakespeare-tokenizer
+{
+  "description": "This tokenizes the text_entry field into an array, it also adds a word_count field, removes the play_name field"
+
+  , "processors": [
+    {
+      "split": {
+        "field": "text_entry",
+        "seperator": "\\s+",
+        "target_field": "word_array"
+      }
+    },
+    {
+      "script": {
+        "lang": "painless",
+        "source": "ctx.word_count = ctx.word_array.length"
+      }
+    },
+    {
+      "remove": {
+        "field": "play_name"
+      }
+    }
+  ]
+}
+
+
+#The new index with nearly same mappings
+PUT romeo_and_juliet
+{
+  "mappings" : {
+      "properties" : {
+        "line_id" : {
+          "type" : "integer"
+        },
+        "line_number" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "speaker" : {
+          "type" : "keyword"
+        },
+        "speech_number" : {
+          "type" : "integer"
+        },
+        "text_entry" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "type" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 4,
+      "number_of_replicas": 3
+    }
+}

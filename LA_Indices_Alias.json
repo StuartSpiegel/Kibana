@@ -1,0 +1,115 @@
+
+
+#Check cluster and node status
+GET _cat/nodes?v
+GET _cat/indices?v
+GET _cat/nodeattrs?v
+
+
+#Testing
+GET logs
+GET this_weeek
+GET yesterday
+GET today
+
+#Define the first index
+PUT logs-2020-01-05
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "warm"
+  }
+}
+
+#Test the newly created index
+GET logs-2020-01-05
+GET _cat/shards/logs-2020-01-05?v
+
+PUT logs-2020-01-06
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "warm"
+  }
+}
+
+#Define the first index
+PUT logs-2020-01-07
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "warm"
+  }
+}
+#Define the first index
+PUT logs-2020-01-08
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "warm"
+  }
+}
+#Define the first index
+PUT logs-2020-01-09
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "warm"
+  }
+}
+
+#This is first index thats different
+#Define the first index
+PUT logs-2020-01-10
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {},
+    "yesterday": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "hot"
+  }
+}
+
+#Define the first index
+PUT logs-2020-01-11
+{
+  "aliases": {
+    "logs": {},
+    "this_weeek": {},
+    "today": {}
+  },
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index.routing.allocation.require.temp": "hot"
+  }
+}

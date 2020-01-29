@@ -1,0 +1,260 @@
+
+
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Check the cluster state
+GET _cat/nodes?v
+GET _cat/indices?v
+
+#Current mappings
+GET logs
+
+#Test the new mappings
+GET logs_new
+
+PUT logs_new
+{
+  "mappings": {
+    "properties": {
+      "@message": {
+        "type": "text"
+      },
+      "@tags": {
+        "type": "keyword",
+        "ignore_above": 128
+      },
+      "@timestamp": {
+        "type": "date"
+      },
+      "@version": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "agent": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "bytes": {
+        "type": "long"
+      },
+      "clientip": {
+        "type": "ip"
+      },
+      "extension": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "geo": {
+        "properties": {
+          "coordinates": {
+            "type": "geo_point"
+          },
+          "dest": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "src": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "srcdest": {
+            "type": "keyword",
+            "ignore_above": 128
+          }
+        }
+      },
+      "headings": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "host": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "ip": {
+        "type": "ip"
+      },
+      "links": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "machine": {
+        "properties": {
+          "os": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "ram": {
+            "type": "long"
+          }
+        }
+      },
+      "memory": {
+        "type": "long"
+      },
+      "phpmemory": {
+        "type": "long"
+      },
+      "referer": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "relatedContent": {
+        "properties": {
+          "article:modified_time": {
+            "type": "date"
+          },
+          "article:published_time": {
+            "type": "date"
+          },
+          "article:section": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "article:tag": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "og:description": {
+            "type": "text"
+          },
+          "og:image": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "og:image:height": {
+            "type": "long"
+          },
+          "og:image:width": {
+            "type": "long"
+          },
+          "og:site_name": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "og:title": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "og:type": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "og:url": {
+            "type": "text",
+            "analyzer": "simple",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "twitter:card": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "twitter:description": {
+            "type": "text"
+          },
+          "twitter:image": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "twitter:site": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "twitter:title": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 128
+              }
+            }
+          },
+          "url": {
+            "type": "text",
+            "analyzer": "simple",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "request": {
+        "type": "text",
+        "analyzer": "simple",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "response": {
+        "type": "keyword",
+        "ignore_above": 128
+      },
+      "spaces": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "url": {
+        "type": "text",
+        "analyzer": "simple",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "utc_time": {
+        "type": "date"
+      },
+      "xss": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 512
+          }
+        }
+      }
+    }
+  },
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 3
+  }
+}
+
+POST _reindex
+{
+  "source": {
+    "index": "logs"
+  },
+  "dest": {
+    "index": "logs_new"
+  }
+}

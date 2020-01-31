@@ -1,0 +1,120 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+#Check cluster status
+GET _cat/nodes?v
+GET _cat/indices?v
+
+GET shakespeare/_search
+
+#Build the first query
+#Min should match means at least 1 value must match the query in the should array
+GET shakespeare/_search
+{
+  "size": 20,
+  "sort": [
+    {
+      "play_name": {
+        "order": "asc"
+      }
+    },
+    {
+      "line_id": {
+       "order": "asc"
+      }
+    }
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "type.keyword": {
+              "value": "scene"
+            }
+          }
+        },
+        {
+          "match": {
+            "text_entry": "london"
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "play_name": {
+              "value": "Henry VI Part 1"
+            }
+          }
+        },
+        {
+          "term": {
+            "play_name": {
+              "value": "Henry VI Part 2"
+            }
+          }
+        },
+        {
+          "term": {
+            "play_name": {
+              "value": "Henry VI Part 3"
+            }
+          }
+        }
+      ],
+       "minimum_should_match": 1
+    }
+  }
+}
+#Build the 2nd Query
+# The text_entry field must have some form of the word "death" in it
+#A filter reduces the data set being search to the play "Hamlet"
+#The results are first sorted by their relevancy score in descending order and then by the line_id in ascending order
+#The search supports pagination and returns the first 5 documents
+#The search results highlight the matched term with <strong>search_term</strong>
+# _Score is the relevancy score
+GET shakespeare/_search
+{
+
+  "from": 0,
+  "size": 5,
+  "highlight": {
+    "pre_tags": ["<strong>"],
+    "post_tags": ["</strong>"],
+    "fields": {
+      "text_entry": {}
+    }
+  },
+  "sort": [
+    {
+      "_score": {
+        "order": "desc"
+      }
+    },
+    {
+      "line_id": {
+        "order": "asc"
+      }
+    }
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "text_entry": "death"
+          }
+        }
+      ],
+      "filter": {
+        "term": {
+          "play_name": "Hamlet"
+        }
+      }
+    }
+  }
+}

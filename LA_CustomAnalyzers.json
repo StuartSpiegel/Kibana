@@ -1,0 +1,89 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Check cluster health
+GET _cat/nodes?v
+GET _cat/indices?v
+
+#Get the current indexed docs
+GET shakespeare
+
+
+POST _reindex/
+{
+  "source": {
+    "index": "shakespeare"
+  },
+  "dest": {
+    "index": "shakespeare_new"
+  }
+}
+
+GET shakespeare_new/_refresh
+
+PUT shakespeare_new
+{
+  "mappings": {
+    "properties": {
+      "line_id": {
+        "type": "integer"
+      },
+      "line_number": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "play_name": {
+        "type": "keyword"
+      },
+      "speaker": {
+        "type": "keyword"
+      },
+      "speech_number": {
+        "type": "integer"
+      },
+      "text_entry": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "case_insensitive": {
+            "type": "text",
+            "analyzer": "standard_custom"
+          }
+        }
+      },
+      "type": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 4,
+      "number_of_replicas": 3,
+      "analysis": {
+        "analyzer": {
+          "standard_custom": {
+            "type": "custom",
+            "tokenizer": "standard"
+          }
+        }
+      }
+    }
+  }
+}

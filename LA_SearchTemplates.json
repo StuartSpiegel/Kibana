@@ -1,0 +1,57 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Check cluster health
+GET _cat/nodes?v
+GET _cat/indices?v
+
+GET shakespeare
+
+#Call the source script
+GET _search/template
+{
+  "id": "shakespeare-test",
+  "params": {
+    "text": "love",
+    "page": 15,
+    "size": 50
+  }
+}
+
+POST _scripts/shakespeare-test
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+    "query": {
+      "match": {
+        "text_entry": "{{text}}"
+      }
+    },
+    "from": "{{page}}{{^page}}0{{/page}}",
+    "size": "{{size}}{{^size}}25{{/size}}"
+  }
+}
+}
+
+
+GET _search/template
+{
+  "source": {
+    "query": {
+      "match": {
+        "text_entry": "{{text}}"
+      }
+    },
+    "from": "{{page}}{{^page}}0{{/page}}",
+    "size": "{{size}}{{^size}}25{{/size}}"
+  },
+  "params": {
+    "text": "love",
+    "size": 100
+  }
+}

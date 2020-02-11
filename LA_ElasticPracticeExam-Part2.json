@@ -1,0 +1,502 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#After operation -> transfer the "bank" index to the "c2" cluster
+DELETE bank
+
+#Check cluster health
+GET _cat/nodes?v
+GET _cat/indices?v
+
+#Repair the c1-data-1 node and then set
+#replicas so you get a yellow fail instead of red
+PUT logs/_settings
+{
+  "number_of_replicas": 1
+
+}
+
+PUT shakespeare/_settings
+{
+  "number_of_replicas": 1
+}
+
+#Get the current cluster data
+GET _cluster/allocation/explain
+
+PUT bank/_settings
+{
+  "index.routing.allocation.require._name": null
+}
+
+POST _reindex
+{
+  "source": {
+    "remote": {
+      "host": "http://10.0.1.101:9200",
+      "username": "elastic",
+      "password": "la_elastic_409"
+    },
+    "index": "bank"
+  },
+  "dest": {
+    "index": "bank"
+  }
+}
+
+#Backup the bank index on the (c2) cluster
+#Create the local repo
+PUT _snapshot/local_repo
+{
+  "type": "fs",
+  "settings": {
+    "location": "/home/elastic/snapshots"
+  }
+}
+
+PUT _snapshot/local_repo/bank_1?wait_for_completion
+{
+  "indices": "bank",
+  "include_global_state": true
+}
+
+#Set the task 3 cluster settings, Cross Cluster Search should be configured at this point.
+PUT _cluster/settings
+{
+"persistent": {
+  "cluster": {
+    "remote": {
+      "c2": {
+        "seeds": ["10.0.1.105:9300"]
+      }
+    }
+  }
+}
+}
+#Delete the requested documents
+DELETE bank/_doc/5
+DELETE bank/_doc/27
+DELETE bank/_doc/819
+
+#Update the banks index
+GET bank/_refresh
+
+POST bank/_update/67
+{
+  "doc": {
+    "lastname": "Alanzo"
+  }
+}
+
+PUT bank/_doc/1000
+{
+  "account_number": 1000,
+  "balance": 35550,
+  "firstname" : "stosh",
+  "lastname" : "pearson",
+  "age": 45,
+  "gender": "M",
+  "address": "125 Bear Creek Pkwy",
+  "employer": "Linux Academy",
+  "email": "spearoni@linuxacademy.com",
+  "city": "Keller",
+  "state": "TX"
+}
+#Get the newly created doc
+GET bank/_doc/1000
+
+#Delete all the documents with line number equal to " "
+# ADD text_entry.english -> english analyzer
+#update every document in the index, pick up new multi-field mapping
+PUT shakespeare/_mappings
+{
+  "properties": {
+    "line_id": {
+      "type": "integer"
+  },
+  "line_number": {
+    "type": "text",
+    "fields": {
+      "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+      }
+    }
+  },
+  "play_name": {
+    "type": "keyword"
+  },
+  "speaker": {
+    "type": "keyword"
+  },
+  "speech_number": {
+    "type": "integer"
+  },
+  "text_entry": {
+    "type": "text",
+    "fields": {
+      "english": {
+        "type": "text",
+        "analyzer": "english"
+      },
+      "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+      }
+    }
+  },
+  "type": {
+    "type": "text",
+    "fields": {
+      "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+        }
+      }
+    }
+  }
+}
+#Get the updated document
+GET shakespeare
+
+POST shakespeare/_update_by_query
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+    if (ctx._source.line_number == "") {
+      ctx.op = "delete"
+  }
+  """
+  }
+}
+
+#Create the ingest pipeline
+PUT _ingest/pipeline/fix_logs
+{
+  "processors": [
+    {
+      "remove": {
+        "field": "@message"
+      }
+    },
+    {
+      "split": {
+        "field": "spaces",
+        "separator": "\\s+"
+      }
+    },
+    {
+      "script": {
+        "lang": "painless",
+        "source": "ctx.relatedContent_count = ctx.realtedContent.length"
+      }
+    },
+    {
+      "uppercase": {
+        "field": "extension"
+      }
+    }
+  ]
+}
+
+PUT logs_new
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1
+  }
+}
+
+#Reindex the logs document
+POST _reindex
+{
+  "source": {
+    "index": "logs"
+  },
+  "dest": {
+    "index": "logs_new",
+    "pipeline": "fix_logs"
+  }
+}
+
+#Begin search documents - (Task 6 of Lab)
+#Create and execute search querry on the (c1) cluster for the shakespeare index that meets criteria
+GET c2:bank/_search
+{
+  "from": 0,
+  "size": 50,
+  "sort": [
+    {
+      "age": {
+        "order": "asc"
+      }
+    },
+    {
+      "balance": {
+        "order": "desc"
+      }
+    },
+    {
+      "lastname.keyword": {
+        "order": "asc"
+      }
+    }
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "gender.keyword": {
+              "value": "F"
+            }
+          }
+        },
+        {
+          "range": {
+            "balance": {
+              "gte": 10000
+            }
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "terms": {
+            "state.keyword": [
+              "PA",
+              "VA",
+              "IL"
+            ]
+          }
+        }
+      ],
+      "filter": {
+        "range": {
+          "age": {
+            "gte": 18,
+            "lte": 35
+          }
+        }
+      }
+    }
+  }
+}
+
+#We are only requiring that two of these queries are a match
+GET shakespeare/_search
+{
+  "from": 0,
+  "size": 20,
+  "highlight": {
+    "pre_tags": "<b>",
+    "post_tags": "</b>",
+    "fields": {
+      "text_entry.english": {}
+    }
+  },
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "text_entry.english": "life"
+          }
+        },
+        {
+          "match": {
+            "text_entry.english": "love"
+          }
+        },
+        {
+          "match": {
+            "text_entry.english": "death"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+GET logs/_search
+{
+  "highlight": {
+    "fields": {
+      "relatedContent.twitter:description": {},
+      "relatedContent.twitter:title": {}
+    }
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "relatedContent.twitter:description": {
+              "query": "never",
+              "fuzziness": 2
+            }
+          }
+        },
+        {
+          "match_phrase": {
+            "relatedContent.twitter:title": "Golden State"
+          }
+        }
+      ]
+    }
+  }
+}
+
+#Agrregate Documents
+# Create a single search request on the c1 cluster for the bank index that answers the following question: What is the average account balance per state for the top 5 states with the most account holders who are 30 years or older (listed in descending order by average balance)? The search results should not return any documents.
+
+
+GET c2:bank/_search
+{
+  "size": 0,
+  "aggs": {
+    "State": {
+      "terms": {
+        "field": "state.keyword",
+        "size": 5,
+        "order": {
+          "avg_balance": "desc"
+        }
+      },
+      "aggs": {
+        "avg_balance": {
+          "avg": {
+            "field": "balance"
+          }
+        }
+      }
+    }
+  }
+  , "query": {
+    "bool": {
+      "filter": {
+        "range": {
+          "age": {
+            "gte": 30
+          }
+        }
+      }
+    }
+  }
+}
+#Determine the top 10 shakespeare plays AND of the top 10, which play has the most parts / speakers
+GET shakespeare/_search
+{
+  "size": 0,
+
+  "aggs": {
+    "plays": {
+      "terms": {
+        "field": "play_name",
+        "size": 10
+      },
+      "aggs": {
+        "speakers": {
+          "cardinality": {
+            "field": "speaker"
+          }
+        }
+      }
+    },
+    "most_parts" : {
+      "max_bucket": {
+        "buckets_path": "plays>speakers"
+      }
+    }
+  }
+}
+
+#Final Aggregation Question
+# On the day May 19th 2015, what was the average number of unique clients per minute for each hour in the day (in chronological order), and which hour had the most clients? The search results should not return any documents.
+GET logs/_search
+{
+  "size": 0,
+  "aggs": {
+    "hour": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "hour"
+      },
+      "aggs": {
+        "clients": {
+          "cardinality": {
+            "field": "clientip.keyword"
+          }
+        },
+        "cumulative_clients": {
+          "cumulative_sum": {
+            "buckets_path": "clients"
+          }
+        },
+        "clients_per_minute": {
+          "derivative": {
+            "buckets_path": "cumulative_clients",
+            "unit": "1m"
+          }
+        }
+      }
+    },
+    "peak": {
+      "max_bucket": {
+        "buckets_path": "hour>clients"
+      }
+    }
+  },
+  "query": {
+    "range": {
+      "@timestamp": {
+        "gte": "2015-05-19",
+        "lt": "2015-05-20",
+        "format": "yyyy-MM-dd"
+      }
+    }
+  }
+}
+
+#Create the search template for the new indices spanning across clusters
+GET c2:bank/_search/template
+{
+  "source": {
+    "from": "{{from}}{{^from}}{{/from}}",
+    "size": "{{size}}{{^size}}{{/size}}",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "wildcard": {
+              "firstname.keyword": "{{first_name}}{^first_name}}{/first_name}}"
+            }
+          },
+          {
+            "wildcard": {
+             "lastname.keyword": "{{last_name}}{{^last_name}}{{/last_name}}"
+            }
+          }
+          ]
+      }
+    }
+  },
+  "params": {
+    "first_name": "*",
+    "last_name": "*"
+  }
+}
+
+POST _scripts/accounts_search
+{
+  "script": {
+    "lang": "mustache",
+    "source": ""
+  }
+}

@@ -87,3 +87,97 @@ PUT shakespeare_new
     }
   }
 }
+#---------------Output--------------#
+{
+  "shakespeare_new" : {
+    "aliases" : { },
+    "mappings" : {
+      "properties" : {
+        "line-id" : {
+          "type" : "integer"
+        },
+        "line-number" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "line_id" : {
+          "type" : "long"
+        },
+        "line_number" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "play_name" : {
+          "type" : "keyword"
+        },
+        "speaker" : {
+          "type" : "keyword"
+        },
+        "speech_number" : {
+          "type" : "integer"
+        },
+        "text-entry" : {
+          "type" : "text",
+          "fields" : {
+            "case-insensitive" : {
+              "type" : "text",
+              "analyzer" : "standard_custom"
+            },
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "text_entry" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "type" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    },
+    "settings" : {
+      "index" : {
+        "number_of_shards" : "4",
+        "provided_name" : "shakespeare_new",
+        "creation_date" : "1581527909387",
+        "analysis" : {
+          "analyzer" : {
+            "standard_custom" : {
+              "type" : "custom",
+              "tokenizer" : "standard"
+            }
+          }
+        },
+        "number_of_replicas" : "3",
+        "uuid" : "oQsjveAiSOCBkvHhDriR6g",
+        "version" : {
+          "created" : "7020199"
+        }
+      }
+    }
+  }
+}

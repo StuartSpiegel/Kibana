@@ -1,0 +1,538 @@
+#Get all docs, query the workspace
+GET /_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Cluster management
+GET _cat/nodeattrs?v
+GET _cat/indices?v
+GET _cat/nodes?v
+GET _cluster/health
+
+#Clean-up indices
+DELETE test
+DELETE my_index
+DELETE star_wars
+DELETE surveys2
+DELETE surveys
+
+GET _cluster/settings
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "xpack.monitoring.collection.enabled": true
+  }
+}
+
+GET /.monitoring-es-7-2020.02.25/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Query the APM monitor index for 2/25/2020
+#Query --> GET all the docs with specified cluster ID, match on the field name "index_stats" and only get docs whose node segment count is between 10 and 20.
+GET /.monitoring-es-7-2020.02.25/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "cluster_uuid": "gB1-PPwkRDulSZ_eyo6WTw"
+          }
+        },
+        {
+          "match": {
+            "type": "index_stats"
+          }
+        },
+        {
+          "range": {
+            "index_stats.primaries.segments.count": {
+              "gte": 10,
+              "lte": 20
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+#Must match two of the values: Category.keyword : Men's Clothing AND Customer.gender : Female
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "term": {
+            "category.keyword": {
+              "value": "Men's Clothing"
+            }
+          }
+        },
+        {
+          "term": {
+            "customer_gender": {
+              "value": "FEMALE"
+            }
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+#Query all the flight data
+GET /kibana_sample_data_flights/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+#All Flights going to Venice
+GET /kibana_sample_data_flights/_search
+{
+  "query": {
+    "match": {
+      "DestCityName": "Venice"
+    }
+  }
+}
+
+#P1 : all flights with destination weather sunny, no flight delay and flight time: Flight time > 10 and Flight time < 20
+GET /kibana_sample_data_flights/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "DestWeather": "Sunny"
+          }
+        },
+        {
+          "match": {
+            "FlightDelay": "false"
+          }
+        },
+        {
+          "range": {
+            "FlightTimeMin": {
+              "gte": 10,
+              "lte": 20
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+#Get all the sample log data
+GET /kibana_sample_data_logs/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+#Get all of the E-Commerce Sample Data
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Products that have a base price thats less than 40 but greater than 20
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "range": {
+          "products.base_price": {
+            "gte": 20,
+            "lte": 40
+          }
+        }
+      }
+    }
+  }
+}
+
+#Filter only for products in "Mens Clothing" that have the manufacturer "Elitelligence" and has a product range between $(20 and 100).
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "category.keyword": "Men's Clothing"
+          }
+        },
+        {
+          "match": {
+            "products.manufacturer.keyword": "Elitelligence"
+          }
+        },
+          {
+            "range": {
+              "products.base_price": {
+                "gte": 20,
+                "lte": 100
+              }
+            }
+          }
+      ]
+    }
+  }
+}
+
+#-------------------------------------------------------------#
+
+GET /filebeat-7.6.0-2020.02.25-000001/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Dynamic Templates: New Index surveys
+#Dynamic Mappings
+PUT surveys
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 2
+  },
+
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "undefined_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword",
+            "index": false
+          }
+        }
+      },
+      {
+        "rating_fields": {
+          "match": "*_rating",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      }
+    ],
+    "properties": {
+      "job_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "miles_travelled": {
+        "type": "integer_range"
+      }
+    }
+  }
+}
+
+#Return the doc defined and mapped above
+GET surveys
+
+#Index the new logs doc with the correct mappings
+PUT logs_new/_doc/1
+{
+  "mappings": {
+    "properties": {
+      "@message": {
+        "type": "text"
+      },
+      "@tags": {
+        "type": "keyword",
+        "ignore_above": 128
+      },
+      "@timestamp": {
+        "type": "date"
+      },
+      "@version": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "agent": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "bytes": {
+        "type": "long"
+      },
+      "clientip": {
+        "type": "ip"
+      },
+      "extension": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "geo": {
+        "properties": {
+          "coordinates": {
+            "type": "geo_point"
+          },
+          "dest": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "src": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "srcdest": {
+            "type": "keyword",
+            "ignore_above": 128
+          }
+        }
+      },
+      "headings": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "host": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "ip": {
+        "type": "ip"
+      },
+      "links": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "machine": {
+        "properties": {
+          "os": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "ram": {
+            "type": "long"
+          }
+        }
+      },
+      "memory": {
+        "type": "long"
+      },
+      "phpmemory": {
+        "type": "long"
+      },
+      "referer": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "relatedContent": {
+        "properties": {
+          "article:modified_time": {
+            "type": "date"
+          },
+          "article:published_time": {
+            "type": "date"
+          },
+          "article:section": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "article:tag": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "og:description": {
+            "type": "text"
+          },
+          "og:image": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "og:image:height": {
+            "type": "long"
+          },
+          "og:image:width": {
+            "type": "long"
+          },
+          "og:site_name": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "og:title": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "og:type": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "og:url": {
+            "type": "text",
+            "analyzer": "simple",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "twitter:card": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "twitter:description": {
+            "type": "text"
+          },
+          "twitter:image": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "twitter:site": {
+            "type": "keyword",
+            "ignore_above": 128
+          },
+          "twitter:title": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 128
+              }
+            }
+          },
+          "url": {
+            "type": "text",
+            "analyzer": "simple",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "request": {
+        "type": "text",
+        "analyzer": "simple",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "response": {
+        "type": "keyword",
+        "ignore_above": 128
+      },
+      "spaces": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "url": {
+        "type": "text",
+        "analyzer": "simple",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "utc_time": {
+        "type": "date"
+      },
+      "xss": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 512
+          }
+        }
+      }
+    }
+  },
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 3
+  }
+}
+
+
+#-----------------------------------------------------------------------#
+
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "match_all": {
+    }
+  }
+}
+
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "term": {
+      "manufacturer.keyword": {
+        "value": "Oceanavigations"
+      }
+    }
+  }
+}
+
+#Query the items in Womens Shoes category in the price range of $20-80
+GET /kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "category.keyword": {
+              "value": "Women's Shoes"
+            }
+          }
+        },
+        {
+          "range": {
+            "products.base_price": {
+              "gte": 20,
+              "lte": 80
+            }
+          }
+        }
+      ]
+    }
+  }
+}

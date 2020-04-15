@@ -1,0 +1,160 @@
+#Get all docs, query the workspace
+GET /_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Cluster management
+GET _cat/nodeattrs?v
+GET _cat/indices?v
+GET _cat/nodes?v
+GET _cluster/health
+
+# Imported sample log data
+
+
+# Practice Exam Questions
+#----------------------------------------------------------------------------------------------------#
+
+# Use the kibana_sample_data_logs index
+# Search for documents with the "message" field containing the string "Firefox"
+
+GET /kibana_sample_data_logs/_search
+{
+  "query": {
+    "match_phrase": {
+      "message": "Firefox"
+    }
+  }
+}
+
+# Same query as above but with pagination, 50 results with an initial offset of 50
+GET /kibana_sample_data_logs/_search
+{
+  "from": 50,
+  "size": 50,
+
+  "query": {
+    "term": { "message": "firefox"}
+  }
+}
+
+# Search for documents with the message field containing BOTH the string "Firefox" and "Kibana"
+GET /kibana_sample_data_logs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "message": "Firefox"
+          }
+        },
+        {
+          "match": {
+            "message": "Kibana"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+# Search for documents with the "message" field containing the phrase "HTTP/1.1 200 51"
+GET /kibana_sample_data_logs/_search
+{
+  "query": {
+    "match_phrase": {
+      "message": "HTTP/1.1 200 51"
+    }
+  }
+}
+
+# repeat above query but sort results by the "machine.os" field in decending order
+GET /kibana_sample_data_logs/_search
+{
+  "query": {
+    "match_phrase": {
+      "message": "HTTP/1.1 200 51"
+    }
+  },
+  "sort": [
+    {
+      "machine.os.keyword": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+# Filter documents with (i) the 'response' field greater or equal to 400 and less than 500, and (ii) the 'tags'
+# field containg the value 'security'
+GET /kibana_sample_data_logs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "tags": "security"
+          }
+        }
+      ],
+      "filter": {
+        "range": {
+          "response.keyword": {
+            "gte": 400,
+            "lte": 500
+          }
+        }
+      }
+    }
+  }
+}
+
+# ------------------------------------ #
+# (5)  Select from movies index where title contains "me" or "my" and if "tags" has 'romantic comedy' and boost scoring
+PUT movies
+
+GET /movies/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "title": "me"
+          }
+        },
+        {
+          "match": {
+            "title": "my"
+          }
+        },
+        {
+          "match": {
+            "tags": "romantic comedy"
+          }
+        }
+      ],
+      "boost": 1,
+      "minimum_should_match": 2
+    }
+  }
+}
+
+PUT food
+
+# Select to 10 manufacturers from food_index by product where 'corn syrup' is in the description.
+GET /food/_search
+{
+  "size": 10,
+   "query": {
+    "match_phrase": {
+      "description": "corn syrup"
+    }
+  }
+}

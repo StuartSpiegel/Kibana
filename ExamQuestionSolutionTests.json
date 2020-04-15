@@ -1,0 +1,235 @@
+
+#Get all docs, query the workspace
+GET /_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Cluster management
+GET _cat/nodeattrs?v
+GET _cat/indices?v
+GET _cat/nodes?v
+GET _cluster/health
+
+#Test indices-> can add fields later
+PUT ingredients
+PUT food
+PUT movies
+PUT movies1
+PUT movies2
+
+#----------------------------------------------------------------------------------------------------#
+# (2) Painless script to modify fields and sort on modified strings
+GET ingredients/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": {
+    "_script": {
+      "type": "string",
+      "order": "asc",
+      "script": {
+        "lang": "painless",
+        "source": "doc['manufacturer.keyword'].value + ' ' + doc['name.keyword'].value"
+      }
+    }
+  }
+}
+#Do the Reindex with _reindex API
+POST _reindex
+{
+  "source": {
+    "index": "food"
+  },
+  "dest": {
+    "index": "ingredients"
+  }
+}
+
+# (5) Select from movies index where title contains "me" or "my" and if tags has 'romantic comedy' and boost scoring.
+GET /movies/_search
+{
+  "query": {
+    "boosting": {
+      "positive": {
+        "term": {
+          "title": "me my"
+        }
+      },
+      "negative": {
+        "term": {
+          "tags": "romantic comedy"
+        }
+      },
+      "negative_boost": 0.2
+    }
+  }
+}
+
+# (7) Match phrase query "olive oil" in fields 1,2,3
+
+#Version 1
+GET _search
+{
+  "query": {
+    "multi_match": {
+      "query": "olive oil",
+      "fields": ["field_1", "field_2", "field_3"]
+    }
+  }
+}
+
+#Version 2
+GET _search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match_phrase": {
+            "field 1": "olive oil"
+          }
+        }
+      ],
+      "should": [
+        {
+          "match_phrase": {
+            "FIELD 1": "olive oil"
+          }
+        },
+        {
+          "match_phrase": {
+            "FIELD 2": "olive oil"
+          }
+        },
+        {
+          "match_phrase": {
+            "FIELD 3": "olive oil"
+          }
+        }
+      ],
+      "minimum_should_match": 3
+    }
+  }
+}
+
+# (3) Char filter (Oz = oz = ounce)
+PUT my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": {
+          "tokenizer": "standard",
+          "char_filter": [
+            "My_char_filter"
+          ]
+        }
+      },
+      "char_filter": {
+        "My_char_filter": {
+          "type": "pattern_replace",
+          "pattern": "Oz oz",
+          "replacement": "ounce"
+        }
+      }
+    }
+  }
+}
+
+# (6) Select to 10 manufacturers from food_index by product where "corn syrup" in description
+GET _search/template
+{
+  "source": {
+    "query": { "match" : { "{{description}}" : "{{corn syrup}}" } },
+    "size": "{{10}}"
+  },
+  "params": {
+    "my_field": "description",
+    "my_value": "corn syrup",
+    "my_size": 10
+  }
+}
+
+# (8) Configure and execute cross cluster search on movies and movies2 index
+# Define the cluster node mappings with the _cluster API
+
+#Configuration
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "cluster_one": {
+          "seeds": [
+            "127.0.0.1:9300"
+          ]
+        },
+        "cluster_two": {
+          "seeds": [
+            "127.0.0.1:9301"
+          ]
+        },
+        "cluster_three": {
+          "seeds": [
+            "127.0.0.1:9302"
+          ]
+        }
+      }
+    }
+  }
+}
+
+# Cross cluster search
+GET /movies1,cluster_one:movies2,cluster_two:movies/_search
+{
+  "query": {
+    "match": {
+      "movies_field": "some movies field value"
+    }
+  }
+}
+
+# (9) Use multi-fields to analyze the same field in different ways to increase relevance, use standard analyzer
+# to break text up into words and then English Analyzer to stem words into their root form.
+
+PUT my_index2
+{
+  "mappings": {
+    "properties": {
+      "text": {
+        "type": "text",
+        "fields": {
+          "english": {
+            "type": "text",
+            "analyzer": "english"
+          }
+        }
+      }
+    }
+  }
+}
+# Put the example docs
+PUT my_index2/_doc/1
+{"text": "the sheep jumped over the fence"}
+
+PUT my_index2/_doc/2
+{"text": "the sheeps jumped over the fence"}
+
+#Craft the query to match the analyzed form
+GET my_index2/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "the sheeps jumped over the fence",
+      "fields": [
+        "text",
+        "text.english"
+        ],
+        "type": "best_fields"
+    }
+  }
+}
